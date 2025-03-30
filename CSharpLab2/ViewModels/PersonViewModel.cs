@@ -122,8 +122,6 @@ namespace KMA.Krachylo.Lab2.ViewModels
                     return;
                 }
 
-                await Task.Delay(5000);
-
                 Person person = new Person(Name, Surname, Email, BirthDate.Value);
 
                 string birthdayMessage = person.IsBirthday ? "Happy Birthday!" : "";
