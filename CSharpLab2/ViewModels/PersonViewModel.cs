@@ -4,10 +4,12 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
+using KMA.Krachylo.Lab2.Exceptions;
 using KMA.Krachylo.Lab2.Models;
 
 namespace KMA.Krachylo.Lab2.ViewModels
@@ -31,7 +33,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
             {
                 _name = value;
                 OnPropertyChanged();
-                _proceedCommand?.NotifyCanExecuteChanged();
+                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -42,7 +44,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
             {
                 _surname = value;
                 OnPropertyChanged();
-                _proceedCommand?.NotifyCanExecuteChanged();
+                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -53,7 +55,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
             {
                 _email = value;
                 OnPropertyChanged();
-                _proceedCommand?.NotifyCanExecuteChanged();
+                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -64,7 +66,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
             {
                 _birthDate = value;
                 OnPropertyChanged();
-                _proceedCommand?.NotifyCanExecuteChanged();
+                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -85,7 +87,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
             {
                 _isProcessing = value;
                 OnPropertyChanged();
-                _proceedCommand?.NotifyCanExecuteChanged();
+                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
@@ -110,35 +112,41 @@ namespace KMA.Krachylo.Lab2.ViewModels
             IsProcessing = true;
             try
             {
-                var dateNow = DateTime.Now;
-                if (BirthDate!.Value > dateNow)
+                await Task.Run(() =>
                 {
-                    MessageBox.Show("Surely you can't be from the future, choose a valid date please.");
-                    return;
-                }
-                if (dateNow.Year - BirthDate.Value.Year >= 135)
-                {
-                    MessageBox.Show("You should be in Guinness World Records book :) Enter your real birthday, please!!");
-                    return;
-                }
-
-                Person person = new Person(Name, Surname, Email, BirthDate.Value);
-
-                string birthdayMessage = person.IsBirthday ? "Happy Birthday!" : "";
-                ResultOutput = $"""
-                    Name: {person.Name}
-                    Surname: {person.Surname}
-                    Email: {person.Email}
-                    Birth Date: {person.BirthDate:yyyy-MM-dd}
-                    Is Adult? {person.IsAdult}
-                    Sun Sign: {person.SunSign}
-                    Chinese Sign: {person.ChineseSign}
-                    {birthdayMessage}
-                    """;
+                    Person person = new Person(Name, Surname, Email, BirthDate.Value);
+                    string birthdayMessage = person.IsBirthday ? "Happy Birthday!" : "";
+                    ResultOutput = $"""
+                        Name: {person.Name}
+                        Surname: {person.Surname}
+                        Email: {person.Email}
+                        Birth Date: {person.BirthDate:yyyy-MM-dd}
+                        Is Adult? {person.IsAdult}
+                        Sun Sign: {person.SunSign}
+                        Chinese Sign: {person.ChineseSign}
+                        {birthdayMessage}
+                        """;
+                });
+            }
+            catch (InvalidNameException ex)
+            {
+                MessageBox.Show(ex.Message, "Name Error");
+            }
+            catch (WrongEmailException ex)
+            {
+                MessageBox.Show(ex.Message, "Email Error");
+            }
+            catch (FutureBirthDateException ex)
+            {
+                MessageBox.Show(ex.Message, "Birth Date Error");
+            }
+            catch (TooOldBirthDateException ex)
+            {
+                MessageBox.Show(ex.Message, "Birth Date Error");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An error occurred: {ex.Message}");
+                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Error");
             }
             finally
             {
@@ -149,7 +157,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            
+
             if (propertyName == nameof(IsProcessing))
             {
                 OnPropertyChanged(nameof(ProcessingVisibility));

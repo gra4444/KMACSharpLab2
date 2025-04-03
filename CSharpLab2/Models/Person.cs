@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mail;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using KMA.Krachylo.Lab2.Exceptions;
 
 namespace KMA.Krachylo.Lab2.Models
 {
@@ -15,7 +18,6 @@ namespace KMA.Krachylo.Lab2.Models
         public string Email { get; private set; }
         public DateTime BirthDate { get; private set; }
 
-
         public bool IsAdult { get; private set; }
         public string SunSign { get; private set; }
         public string ChineseSign { get; private set; }
@@ -23,6 +25,28 @@ namespace KMA.Krachylo.Lab2.Models
 
         public Person(string name, string surname, string email, DateTime birthDate)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new InvalidNameException("Name cannot be empty.");
+            if (!Regex.IsMatch(name, @"^[a-zA-Z]+$"))
+                throw new InvalidNameException("Name can only contain letters.");
+
+            if (string.IsNullOrWhiteSpace(surname))
+                throw new InvalidNameException("Surname cannot be empty.");
+            if (!Regex.IsMatch(surname, @"^[a-zA-Z]+$"))
+                throw new InvalidNameException("Surname can only contain letters.");
+
+            if (string.IsNullOrWhiteSpace(email))
+                throw new WrongEmailException("Email cannot be empty.");
+            if (!IsValidEmail(email))
+                throw new WrongEmailException("Invalid email format.");
+
+            var now = DateTime.Now;
+            if (birthDate > now)
+                throw new FutureBirthDateException("Birth date cannot be in the future.");
+            if (now.Year - birthDate.Year >= 135)
+                throw new TooOldBirthDateException("Birth date cannot be more than 135 years ago.");
+
+
             Name = name;
             Surname = surname;
             Email = email;
@@ -35,14 +59,29 @@ namespace KMA.Krachylo.Lab2.Models
 
         public Person(string name, string surname, DateTime birthDate) : this(name, surname, string.Empty, birthDate) { }
 
+        private bool IsValidEmail(string email)
+        {
+            var trimmedEmail = email.Trim();
+            if (trimmedEmail.EndsWith("."))
+                return false;
+            try
+            {
+                var addr = new MailAddress(email);
+                return addr.Address == trimmedEmail;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private void CalculateProperties()
         {
             var dateNow = DateTime.Now;
             int age = dateNow.Year - BirthDate.Year;
-            if (dateNow.DayOfYear - BirthDate.DayOfYear < 0)
+            if (dateNow < BirthDate.AddYears(age))
                 age--;
-
-            IsAdult = age > 18;
+            IsAdult = age >= 18;
             IsBirthday = dateNow.Month == BirthDate.Month && dateNow.Day == BirthDate.Day;
             SunSign = GetSunSign();
             ChineseSign = GetChineseSign();
@@ -54,53 +93,29 @@ namespace KMA.Krachylo.Lab2.Models
             switch (BirthDate.Month)
             {
                 case 1:
-                    if (day <= 19)
-                        return "Capricorn";
-                    return "Aquarius";
+                    return day <= 19 ? "Capricorn" : "Aquarius";
                 case 2:
-                    if (day <= 18)
-                        return "Aquarius";
-                    return "Pisces";
+                    return day <= 18 ? "Aquarius" : "Pisces";
                 case 3:
-                    if (day <= 20)
-                        return "Pisces";
-                    return "Aries";
+                    return day <= 20 ? "Pisces" : "Aries";
                 case 4:
-                    if (day <= 19)
-                        return "Aries";
-                    return "Taurus";
+                    return day <= 19 ? "Aries" : "Taurus";
                 case 5:
-                    if (day <= 20)
-                        return "Taurus";
-                    return "Gemini";
+                    return day <= 20 ? "Taurus" : "Gemini";
                 case 6:
-                    if (day <= 20)
-                        return "Gemini";
-                    return "Cancer";
+                    return day <= 20 ? "Gemini" : "Cancer";
                 case 7:
-                    if (day <= 22)
-                        return "Cancer";
-                    return "Leo";
+                    return day <= 22 ? "Cancer" : "Leo";
                 case 8:
-                    if (day <= 22)
-                        return "Leo";
-                    return "Virgo";
+                    return day <= 22 ? "Leo" : "Virgo";
                 case 9:
-                    if (day <= 22)
-                        return "Virgo";
-                    return "Libra";
+                    return day <= 22 ? "Virgo" : "Libra";
                 case 10:
-                    if (day <= 22)
-                        return "Libra";
-                    return "Scorpio";
+                    return day <= 22 ? "Libra" : "Scorpio";
                 case 11:
-                    if (day <= 21)
-                        return "Scorpio";
-                    return "Saggitarius";
+                    return day <= 21 ? "Scorpio" : "Sagittarius";
                 case 12:
-                    if (day <= 21)
-                        return "Saggitarius";
-                    return "Capricorn";
+                    return day <= 21 ? "Sagittarius" : "Capricorn";
                 default:
                     throw new ArgumentOutOfRangeException($"Invalid month {BirthDate.Month} provided");
             }
