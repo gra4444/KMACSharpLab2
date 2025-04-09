@@ -12,21 +12,40 @@
         <vm:PersonViewModel/>
     </UserControl.DataContext>
     <Grid>
-        <StackPanel Margin="10">
-            <TextBlock Text="Enter your name:"/>
-            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding InputsEnabled}"/>
-            <TextBlock Text="Enter your surname:"/>
-            <TextBox Text="{Binding Surname, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding InputsEnabled}"/>
-            <TextBlock Text="Enter your email:"/>
-            <TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding InputsEnabled}"/>
-            <TextBlock Text="Pick your birth date:"/>
-            <DatePicker SelectedDate="{Binding BirthDate, UpdateSourceTrigger=PropertyChanged}" 
-                        DisplayDateEnd="{x:Static sys:DateTime.Now}" 
-                        IsEnabled="{Binding InputsEnabled}"/>
-            <Button Content="Proceed" Command="{Binding ProceedCommand}"/>
-            <TextBlock Text="{Binding ResultOutput}" Margin="0,10,0,0" TextWrapping="Wrap"/>
-            <TextBlock Text="Processing..." Visibility="{Binding ProcessingVisibility}" 
-                       HorizontalAlignment="Center" FontSize="20"/>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
+            <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Width="200" Margin="0,0,10,0"/>
+            <ComboBox SelectedValue="{Binding SortProperty}" SelectedValuePath="Content" Width="150">
+                <ComboBoxItem Content="Name"/>
+                <ComboBoxItem Content="Surname"/>
+                <ComboBoxItem Content="Email"/>
+                <ComboBoxItem Content="BirthDate"/>
+            </ComboBox>
+        </StackPanel>
+
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}" 
+                  AutoGenerateColumns="False" IsReadOnly="True" Margin="5">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Surname" Binding="{Binding Surname, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Email" Binding="{Binding Email, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Birth Date" Binding="{Binding BirthDate, Mode=OneWay, StringFormat=d}" Width="*"/>
+                <DataGridCheckBoxColumn Header="Is Adult" Binding="{Binding IsAdult, Mode=OneWay}" Width="Auto"/>
+                <DataGridTextColumn Header="Sun Sign" Binding="{Binding SunSign, Mode=OneWay}" Width="*"/>
+                <DataGridTextColumn Header="Chinese Sign" Binding="{Binding ChineseSign, Mode=OneWay}" Width="*"/>
+                <DataGridCheckBoxColumn Header="Is Birthday" Binding="{Binding IsBirthday, Mode=OneWay}" Width="Auto"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5">
+            <Button Content="Add" Command="{Binding AddCommand}" Margin="0,0,10,0"/>
+            <Button Content="Edit" Command="{Binding EditCommand}" Margin="0,0,10,0"/>
+            <Button Content="Delete" Command="{Binding DeleteCommand}"/>
         </StackPanel>
     </Grid>
 </UserControl>

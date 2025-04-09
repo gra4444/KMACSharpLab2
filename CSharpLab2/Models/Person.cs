@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mail;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using KMA.Krachylo.Lab2.Exceptions;
 
 namespace KMA.Krachylo.Lab2.Models
 {
-    internal class Person
+    public class Person
     {
         private static readonly string[] animals = { "Rat", "Ox", "Tiger", "Rabbit", "Dragon", "Snake", "Horse", "Goat", "Monkey", "Rooster", "Dog", "Pig" };
 
@@ -23,6 +24,7 @@ namespace KMA.Krachylo.Lab2.Models
         public string ChineseSign { get; private set; }
         public bool IsBirthday { get; private set; }
 
+        [JsonConstructor]
         public Person(string name, string surname, string email, DateTime birthDate)
         {
             if (string.IsNullOrWhiteSpace(name))

@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -11,158 +14,186 @@ using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 using KMA.Krachylo.Lab2.Exceptions;
 using KMA.Krachylo.Lab2.Models;
+using KMA.Krachylo.Lab2.Repository;
+using KMA.Krachylo.Lab2.Views;
 
 namespace KMA.Krachylo.Lab2.ViewModels
 {
     class PersonViewModel : INotifyPropertyChanged
     {
-        private string _name = string.Empty;
-        private string _surname = string.Empty;
-        private string _email = string.Empty;
-        private DateTime? _birthDate;
-        private string _resultOutput = string.Empty;
-        private bool _isProcessing;
-        private RelayCommand _proceedCommand;
+        private readonly PersonRepository _repository;
+        private ObservableCollection<Person> _users;
+        private ObservableCollection<Person> _filteredUsers;
+        private string _filterText;
+        private string _sortProperty;
+        private Person _selectedUser;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public string Name
+        public ObservableCollection<Person> Users
         {
-            get => _name;
+            get => _filteredUsers;
             set
             {
-                _name = value;
+                _filteredUsers = value;
                 OnPropertyChanged();
-                ProceedCommand?.NotifyCanExecuteChanged();
             }
         }
 
-        public string Surname
+        public string FilterText
         {
-            get => _surname;
-            set
+            get => _filterText;
+            set 
             {
-                _surname = value;
-                OnPropertyChanged();
-                ProceedCommand?.NotifyCanExecuteChanged();
+                _filterText = value;
+                ApplyFilter();
+                OnPropertyChanged(); 
             }
         }
 
-        public string Email
+        public string SortProperty
         {
-            get => _email;
-            set
+            get => _sortProperty;
+            set 
+            { 
+                _sortProperty = value;
+                ApplySort();
+                OnPropertyChanged();
+            }
+        }
+
+        public Person SelectedUser
+        {
+            get => _selectedUser;
+            set 
             {
-                _email = value;
+                _selectedUser = value;
                 OnPropertyChanged();
-                ProceedCommand?.NotifyCanExecuteChanged();
+                EditCommand.NotifyCanExecuteChanged();
+                DeleteCommand.NotifyCanExecuteChanged();
             }
         }
 
-        public DateTime? BirthDate
+        public RelayCommand AddCommand { get; }
+        public RelayCommand EditCommand { get; }
+        public RelayCommand DeleteCommand { get; }
+
+        public PersonViewModel()
         {
-            get => _birthDate;
-            set
-            {
-                _birthDate = value;
-                OnPropertyChanged();
-                ProceedCommand?.NotifyCanExecuteChanged();
-            }
+            _repository = new PersonRepository();
+            LoadUsersAsync();
+            AddCommand = new RelayCommand(AddUser);
+            EditCommand = new RelayCommand(EditUser, () => SelectedUser != null);
+            DeleteCommand = new RelayCommand(DeleteUser, () => SelectedUser != null);
         }
 
-        public string ResultOutput
+        private async void LoadUsersAsync()
         {
-            get => _resultOutput;
-            private set
-            {
-                _resultOutput = value;
-                OnPropertyChanged();
-            }
-        }
-
-        public bool IsProcessing
-        {
-            get => _isProcessing;
-            private set
-            {
-                _isProcessing = value;
-                OnPropertyChanged();
-                ProceedCommand?.NotifyCanExecuteChanged();
-            }
-        }
-
-        public Visibility ProcessingVisibility => IsProcessing ? Visibility.Visible : Visibility.Collapsed;
-
-        public bool InputsEnabled => !IsProcessing;
-
-        public bool CanProceed => !string.IsNullOrWhiteSpace(Name) &&
-                                  !string.IsNullOrWhiteSpace(Surname) &&
-                                  !string.IsNullOrWhiteSpace(Email) &&
-                                  BirthDate.HasValue &&
-                                  !IsProcessing;
-
-        public RelayCommand ProceedCommand => _proceedCommand ??= new RelayCommand(
-            async () => await ProceedAsync(),
-            () => CanProceed);
-
-        public PersonViewModel() { }
-
-        private async Task ProceedAsync()
-        {
-            IsProcessing = true;
             try
             {
-                await Task.Run(() =>
-                {
-                    Person person = new Person(Name, Surname, Email, BirthDate.Value);
-                    string birthdayMessage = person.IsBirthday ? "Happy Birthday!" : "";
-                    ResultOutput = $"""
-                        Name: {person.Name}
-                        Surname: {person.Surname}
-                        Email: {person.Email}
-                        Birth Date: {person.BirthDate:yyyy-MM-dd}
-                        Is Adult? {person.IsAdult}
-                        Sun Sign: {person.SunSign}
-                        Chinese Sign: {person.ChineseSign}
-                        {birthdayMessage}
-                        """;
-                });
-            }
-            catch (InvalidNameException ex)
-            {
-                MessageBox.Show(ex.Message, "Name Error");
-            }
-            catch (WrongEmailException ex)
-            {
-                MessageBox.Show(ex.Message, "Email Error");
-            }
-            catch (FutureBirthDateException ex)
-            {
-                MessageBox.Show(ex.Message, "Birth Date Error");
-            }
-            catch (TooOldBirthDateException ex)
-            {
-                MessageBox.Show(ex.Message, "Birth Date Error");
+                var users = await _repository.LoadUsersAsync();
+                _users = new ObservableCollection<Person>(users);
+                Users = new ObservableCollection<Person>(_users);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"An unexpected error occurred: {ex.Message}", "Error");
+                MessageBox.Show(ex.Message);
+                _users = new ObservableCollection<Person>();
+                Users = new ObservableCollection<Person>();
             }
-            finally
+        }
+
+        private async void SaveUsers()
+        {
+            try
             {
-                IsProcessing = false;
+                await _repository.SaveUsersAsync(_users.ToList());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void ApplyFilter()
+        {
+            if (string.IsNullOrEmpty(FilterText))
+            {
+                Users = new ObservableCollection<Person>(_users);
+            }
+            else
+            {
+                var filtered = _users.Where(p => p.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                                                 p.Surname.Contains(FilterText, StringComparison.OrdinalIgnoreCase));
+                Users = new ObservableCollection<Person>(filtered);
+            }
+            ApplySort();
+        }
+
+        private void ApplySort()
+        {
+            if (string.IsNullOrEmpty(SortProperty)) return;
+            IEnumerable<Person> sorted;
+            switch (SortProperty)
+            {
+                case "Name":
+                    sorted = Users.OrderBy(p => p.Name);
+                    break;
+                case "Surname":
+                    sorted = Users.OrderBy(p => p.Surname);
+                    break;
+                case "Email":
+                    sorted = Users.OrderBy(p => p.Email);
+                    break;
+                case "BirthDate":
+                    sorted = Users.OrderBy(p => p.BirthDate);
+                    break;
+                default:
+                    return;
+            }
+            Users = new ObservableCollection<Person>(sorted);
+        }
+
+        private void AddUser()
+        {
+            var dialog = new EditPersonWindow();
+            dialog.PersonSaved += person =>
+            {
+                _users.Add(person);
+                SaveUsers();
+                ApplyFilter();
+            };
+            dialog.ShowDialog();
+        }
+
+        private void EditUser()
+        {
+            if (SelectedUser == null) return;
+            var dialog = new EditPersonWindow(SelectedUser);
+            dialog.PersonSaved += person =>
+            {
+                int index = _users.IndexOf(SelectedUser);
+                _users[index] = person;
+                SaveUsers();
+                ApplyFilter();
+            };
+            dialog.ShowDialog();
+        }
+
+        private void DeleteUser()
+        {
+            if (SelectedUser == null) return;
+            if (MessageBox.Show("Sure you wanna delete this user?", "Confirm Delete", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                _users.Remove(SelectedUser);
+                SaveUsers();
+                ApplyFilter();
             }
         }
 
         protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-
-            if (propertyName == nameof(IsProcessing))
-            {
-                OnPropertyChanged(nameof(ProcessingVisibility));
-                OnPropertyChanged(nameof(InputsEnabled));
-            }
         }
     }
 }
