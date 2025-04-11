@@ -7,7 +7,7 @@
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
              xmlns:vm="clr-namespace:KMA.Krachylo.Lab2.ViewModels"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="1000">
     <UserControl.DataContext>
         <vm:PersonViewModel/>
     </UserControl.DataContext>
@@ -17,19 +17,33 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="5">
-            <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Width="200" Margin="0,0,10,0"/>
-            <ComboBox SelectedValue="{Binding SortProperty}" SelectedValuePath="Content" Width="150">
-                <ComboBoxItem Content="Name"/>
-                <ComboBoxItem Content="Surname"/>
-                <ComboBoxItem Content="Email"/>
-                <ComboBoxItem Content="BirthDate"/>
-            </ComboBox>
-        </StackPanel>
-
+        <Grid Grid.Row="0" Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" Grid.Column="0">
+                <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Width="200" Margin="0,0,10,0" Padding="5,3"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="10,0,0,0">
+                <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                <ComboBox SelectedValue="{Binding SortProperty}" SelectedValuePath="Content" Width="120" Padding="5,3">
+                    <ComboBoxItem Content="Name"/>
+                    <ComboBoxItem Content="Surname"/>
+                    <ComboBoxItem Content="Email"/>
+                    <ComboBoxItem Content="BirthDate"/>
+                    <ComboBoxItem Content="IsAdult"/>
+                    <ComboBoxItem Content="SunSign"/>
+                    <ComboBoxItem Content="ChineseSign"/>
+                    <ComboBoxItem Content="IsBirthday"/>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
         <DataGrid Grid.Row="1" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser}" 
-                  AutoGenerateColumns="False" IsReadOnly="True" Margin="5">
+                  AutoGenerateColumns="False" IsReadOnly="True" Margin="10" 
+                  AlternatingRowBackground="LightGray">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=OneWay}" Width="*"/>
                 <DataGridTextColumn Header="Surname" Binding="{Binding Surname, Mode=OneWay}" Width="*"/>
@@ -41,11 +55,16 @@
                 <DataGridCheckBoxColumn Header="Is Birthday" Binding="{Binding IsBirthday, Mode=OneWay}" Width="Auto"/>
             </DataGrid.Columns>
         </DataGrid>
-
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5">
-            <Button Content="Add" Command="{Binding AddCommand}" Margin="0,0,10,0"/>
-            <Button Content="Edit" Command="{Binding EditCommand}" Margin="0,0,10,0"/>
-            <Button Content="Delete" Command="{Binding DeleteCommand}"/>
+        <Grid Grid.Row="1">
+            <TextBlock Text="Loading data..." 
+                       Visibility="{Binding IsLoadingVisible}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" 
+                       FontSize="24" Foreground="Gray"/>
+        </Grid>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10">
+            <Button Content="Add" Command="{Binding AddCommand}" Margin="0,0,10,0" Padding="15,5"/>
+            <Button Content="Edit" Command="{Binding EditCommand}" Margin="0,0,10,0" Padding="15,5"/>
+            <Button Content="Delete" Command="{Binding DeleteCommand}" Padding="15,5"/>
         </StackPanel>
     </Grid>
 </UserControl>

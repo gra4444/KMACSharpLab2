@@ -13,19 +13,32 @@ namespace KMA.Krachylo.Lab2.ViewModels
 {
     public class EditPersonViewModel : INotifyPropertyChanged
     {
-        private string _name;
-        private string _surname;
-        private string _email;
-        private DateTime _birthDate;
+        private string _name = string.Empty;
+        private string _surname = string.Empty;
+        private string _email = string.Empty;
+        private DateTime? _birthDate;
+        private bool _isProcessing;
         private string _mode;
+        private AsyncRelayCommand _saveCommand;
 
-        public Person Person { get; private set; }
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event Action<Person> PersonSaved;
+
+        public string Mode
+        {
+            get => _mode;
+            private set
+            {
+                _mode = value;
+                OnPropertyChanged();
+            }
+        }
 
         public string Name
         {
             get => _name;
-            set 
-            { 
+            set
+            {
                 _name = value;
                 OnPropertyChanged();
                 SaveCommand.NotifyCanExecuteChanged();
@@ -35,7 +48,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
         public string Surname
         {
             get => _surname;
-            set 
+            set
             {
                 _surname = value;
                 OnPropertyChanged();
@@ -46,82 +59,107 @@ namespace KMA.Krachylo.Lab2.ViewModels
         public string Email
         {
             get => _email;
-            set 
-            { 
+            set
+            {
                 _email = value;
                 OnPropertyChanged();
                 SaveCommand.NotifyCanExecuteChanged();
             }
         }
 
-        public DateTime BirthDate
+        public DateTime? BirthDate
         {
             get => _birthDate;
-            set 
+            set
             {
-                _birthDate = value; 
+                _birthDate = value;
                 OnPropertyChanged();
                 SaveCommand.NotifyCanExecuteChanged();
             }
         }
 
-        public string Mode
+        public bool IsProcessing
         {
-            get => _mode;
-            set 
+            get => _isProcessing;
+            private set
             {
-                _mode = value;
+                _isProcessing = value;
                 OnPropertyChanged();
+                SaveCommand.NotifyCanExecuteChanged();
             }
         }
 
-        public RelayCommand SaveCommand { get; }
+        public Visibility ProcessingVisibility => IsProcessing ? Visibility.Visible : Visibility.Collapsed;
+        public bool InputsEnabled => !IsProcessing;
 
-        public EditPersonViewModel(Person? person)
+        public bool CanSave => !string.IsNullOrWhiteSpace(Name) &&
+                               !string.IsNullOrWhiteSpace(Surname) &&
+                               !string.IsNullOrWhiteSpace(Email) &&
+                               BirthDate.HasValue &&
+                               !IsProcessing;
+
+        public AsyncRelayCommand SaveCommand
         {
-            SaveCommand = new RelayCommand(Save, CanSave);
+            get
+            {
+                if (_saveCommand == null)
+                {
+                    _saveCommand = new AsyncRelayCommand(SaveAsync, () => CanSave);
+                }
+                return _saveCommand;
+            }
+        }
+
+        public EditPersonViewModel(Person? person = null)
+        {
             if (person != null)
             {
-                Mode = "Edit";
                 Name = person.Name;
                 Surname = person.Surname;
                 Email = person.Email;
                 BirthDate = person.BirthDate;
-                Person = person;
+                Mode = "Edit";
             }
             else
             {
+                BirthDate = DateTime.Now.AddYears(-18).Date;
                 Mode = "Add";
-                BirthDate = DateTime.Now;
             }
         }
 
-        public EditPersonViewModel() : this(null) { }
-
-        private void Save()
+        private async Task SaveAsync()
         {
+            IsProcessing = true;
             try
             {
-                Person = new Person(Name, Surname, Email, BirthDate);
+                var person = await Task.Run(() =>
+                {
+                    if (!BirthDate.HasValue)
+                        throw new ArgumentException("Birth date is required");
+
+                    return new Person(Name, Surname, Email, BirthDate.Value);
+                });
+
+                PersonSaved?.Invoke(person);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsProcessing = false;
             }
         }
 
-        private bool CanSave()
-        {
-            return !string.IsNullOrWhiteSpace(Name) &&
-                   !string.IsNullOrWhiteSpace(Surname) &&
-                   !string.IsNullOrWhiteSpace(Email) &&
-                   BirthDate <= DateTime.Now;
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            if (propertyName == nameof(IsProcessing))
+            {
+                OnPropertyChanged(nameof(ProcessingVisibility));
+                OnPropertyChanged(nameof(InputsEnabled));
+            }
         }
     }
 }

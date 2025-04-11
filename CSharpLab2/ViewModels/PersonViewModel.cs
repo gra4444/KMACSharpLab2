@@ -24,9 +24,10 @@ namespace KMA.Krachylo.Lab2.ViewModels
         private readonly PersonRepository _repository;
         private ObservableCollection<Person> _users;
         private ObservableCollection<Person> _filteredUsers;
-        private string _filterText;
-        private string _sortProperty;
+        private string _filterText = string.Empty;
+        private string _sortProperty = string.Empty;
         private Person _selectedUser;
+        private bool _isLoading = false;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -43,19 +44,19 @@ namespace KMA.Krachylo.Lab2.ViewModels
         public string FilterText
         {
             get => _filterText;
-            set 
+            set
             {
                 _filterText = value;
                 ApplyFilter();
-                OnPropertyChanged(); 
+                OnPropertyChanged();
             }
         }
 
         public string SortProperty
         {
             get => _sortProperty;
-            set 
-            { 
+            set
+            {
                 _sortProperty = value;
                 ApplySort();
                 OnPropertyChanged();
@@ -65,7 +66,7 @@ namespace KMA.Krachylo.Lab2.ViewModels
         public Person SelectedUser
         {
             get => _selectedUser;
-            set 
+            set
             {
                 _selectedUser = value;
                 OnPropertyChanged();
@@ -74,26 +75,47 @@ namespace KMA.Krachylo.Lab2.ViewModels
             }
         }
 
+        public bool IsLoading
+        {
+            get => _isLoading;
+            set
+            {
+                _isLoading = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public Visibility IsLoadingVisible
+        { 
+            get => _isLoading ? Visibility.Visible : Visibility.Hidden; 
+        }
+
         public RelayCommand AddCommand { get; }
         public RelayCommand EditCommand { get; }
         public RelayCommand DeleteCommand { get; }
 
         public PersonViewModel()
         {
+            IsLoading = false;
             _repository = new PersonRepository();
-            LoadUsersAsync();
+            _users = new ObservableCollection<Person>();
+            _filteredUsers = new ObservableCollection<Person>();
+
             AddCommand = new RelayCommand(AddUser);
             EditCommand = new RelayCommand(EditUser, () => SelectedUser != null);
             DeleteCommand = new RelayCommand(DeleteUser, () => SelectedUser != null);
+
+            Task.Run(async () => await LoadUsersAsync());
         }
 
-        private async void LoadUsersAsync()
+        private async Task LoadUsersAsync()
         {
             try
             {
+                IsLoading = true;
                 var users = await _repository.LoadUsersAsync();
                 _users = new ObservableCollection<Person>(users);
-                Users = new ObservableCollection<Person>(_users);
+                ApplyFilter();
             }
             catch (Exception ex)
             {
@@ -101,82 +123,109 @@ namespace KMA.Krachylo.Lab2.ViewModels
                 _users = new ObservableCollection<Person>();
                 Users = new ObservableCollection<Person>();
             }
+            finally
+            {
+                IsLoading = false;
+            }
         }
 
         private async void SaveUsers()
         {
             try
             {
+                IsLoading = true;
                 await _repository.SaveUsersAsync(_users.ToList());
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message);
+                MessageBox.Show($"Error saving users: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsLoading = false;
             }
         }
 
         private void ApplyFilter()
         {
-            if (string.IsNullOrEmpty(FilterText))
+            IEnumerable<Person> filtered = _users;
+
+            if (!string.IsNullOrEmpty(FilterText))
             {
-                Users = new ObservableCollection<Person>(_users);
+                filtered = _users.Where(p =>
+                    p.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Surname.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                    p.Email.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                    p.SunSign.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
+                    p.ChineseSign.Contains(FilterText, StringComparison.OrdinalIgnoreCase));
             }
-            else
-            {
-                var filtered = _users.Where(p => p.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase) ||
-                                                 p.Surname.Contains(FilterText, StringComparison.OrdinalIgnoreCase));
-                Users = new ObservableCollection<Person>(filtered);
-            }
+
+            Users = new ObservableCollection<Person>(filtered);
             ApplySort();
         }
 
         private void ApplySort()
         {
             if (string.IsNullOrEmpty(SortProperty)) return;
+
             IEnumerable<Person> sorted;
-            switch (SortProperty)
+
+            Func<Person, IComparable> keySelector = SortProperty switch
             {
-                case "Name":
-                    sorted = Users.OrderBy(p => p.Name);
-                    break;
-                case "Surname":
-                    sorted = Users.OrderBy(p => p.Surname);
-                    break;
-                case "Email":
-                    sorted = Users.OrderBy(p => p.Email);
-                    break;
-                case "BirthDate":
-                    sorted = Users.OrderBy(p => p.BirthDate);
-                    break;
-                default:
-                    return;
-            }
+                "Name" => p => p.Name,
+                "Surname" => p => p.Surname,
+                "Email" => p => p.Email,
+                "BirthDate" => p => p.BirthDate,
+                "SunSign" => p => p.SunSign,
+                "ChineseSign" => p => p.ChineseSign,
+                "IsAdult" => p => p.IsAdult,
+                "IsBirthday" => p => p.IsBirthday,
+                _ => p => p.Surname
+            };
+
+            sorted = Users.OrderBy(keySelector);
+
             Users = new ObservableCollection<Person>(sorted);
         }
 
         private void AddUser()
         {
             var dialog = new EditPersonWindow();
-            dialog.PersonSaved += person =>
+            var viewModel = dialog.DataContext as EditPersonViewModel;
+
+            if (viewModel != null)
             {
-                _users.Add(person);
-                SaveUsers();
-                ApplyFilter();
-            };
+                viewModel.PersonSaved += person =>
+                {
+                    _users.Add(person);
+                    SaveUsers();
+                    ApplyFilter();
+                    dialog.Close();
+                };
+            }
+
             dialog.ShowDialog();
         }
 
         private void EditUser()
         {
             if (SelectedUser == null) return;
+
             var dialog = new EditPersonWindow(SelectedUser);
-            dialog.PersonSaved += person =>
+            var viewModel = dialog.DataContext as EditPersonViewModel;
+
+            if (viewModel != null)
             {
-                int index = _users.IndexOf(SelectedUser);
-                _users[index] = person;
-                SaveUsers();
-                ApplyFilter();
-            };
+                viewModel.PersonSaved += person =>
+                {
+                    int index = _users.IndexOf(SelectedUser);
+                    _users[index] = person;
+                    SaveUsers();
+                    ApplyFilter();
+                    dialog.Close();
+                };
+            }
             dialog.ShowDialog();
         }
 

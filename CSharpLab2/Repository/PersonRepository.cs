@@ -20,9 +20,15 @@ namespace KMA.Krachylo.Lab2.Repository
                 if (File.Exists(FilePath))
                 {
                     string json = await File.ReadAllTextAsync(FilePath);
-                    return JsonSerializer.Deserialize<List<Person>>(json);
+                    if (!string.IsNullOrWhiteSpace(json))
+                    {
+                        return JsonSerializer.Deserialize<List<Person>>(json) ?? new List<Person>();
+                    }
                 }
-                return new List<Person>();
+                // Генеруємо 50 користувачів при першому запуску
+                var users = await GenerateDefaultUsers();
+                await SaveUsersAsync(users);
+                return users;
             }
             catch (Exception ex)
             {
@@ -41,6 +47,34 @@ namespace KMA.Krachylo.Lab2.Repository
             {
                 throw new Exception("Error saving users: " + ex.Message);
             }
+        }
+
+        private async Task<List<Person>> GenerateDefaultUsers()
+        {
+            return await Task.Run(() =>
+            {
+                var users = new List<Person>();
+                var random = new Random();
+                var domains = new[] { "gmail.com", "ukr.net", "outlook.com", "ukma.edu.ua" };
+                var names = new[] { "Illia", "Ivan", "Petro", "Olexandr", "Viktor", "Anton", "Oleksii", "Olha", "Anna", "Julia" };
+                var surnames = new[] { "Ivanenko", "Petrenko", "Poroshenko", "Symonenko", "Shevchenko", "Horbenko", "Kravchenko", "Shvets", "Antoniuk", "Hryhorenko" };
+
+                for (int i = 0; i < 50; i++)
+                {
+                    var name = names[random.Next(names.Length)];
+                    var surname = surnames[random.Next(surnames.Length)];
+                    var email = $"{name.ToLower().First()}.{surname.ToLower()}{random.Next(1000)}@{domains[random.Next(domains.Length)]}";
+
+                    var now = DateTime.Now;
+                    var years = random.Next(1, 90);
+                    var days = random.Next(1, 365);
+                    var birthDate = now.AddYears(-years).AddDays(-days);
+
+                    var person = new Person(name, surname, email, birthDate);
+                    users.Add(person);
+                }
+                return users;
+            });
         }
     }
 }
